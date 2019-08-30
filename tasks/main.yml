@@ -8,10 +8,16 @@
     nginx_user: "{{ __nginx_user }}"
   when: nginx_user is not defined
 
+# Install dirmngr (required by apt-key).
+- name: Install certificate management service.
+  apt:
+    name: dirmngr
+    state: present
+
 # Passenger repository setup.
 - name: Add Passenger apt key.
   apt_key:
-    keyserver: keyserver.ubuntu.com
+    keyserver: "hkp://keyserver.ubuntu.com:{{ hkp_port }}"
     id: 561F9B9CAC40B2F7
     state: present
 
@@ -24,34 +30,37 @@
     state: present
     update_cache: true
 
-- name: Install Nginx and Passenger (< Ubuntu 18.04 or Debian).
+- name: Install Nginx and Passenger (Ubuntu < 18.04 or Debian < 9).
   apt:
     name:
       - nginx-extras
       - passenger
     state: present
-  when: |
-    ansible_distribution != 'Ubuntu'
-    or ansible_distribution_version != '18.04'
+  when: ( ansible_distribution == 'Ubuntu' and
+        ansible_distribution_version < '18.04' ) or
+        ( ansible_distribution == 'Debian' and
+          ansible_distribution_version < '9' )
 
-- name: Install Nginx and Passenger (Ubuntu 18.04).
+- name: Install Nginx and Passenger (Ubuntu >= 18.04 or Debian >= 9).
   apt:
     name:
       - nginx
       - libnginx-mod-http-passenger
     state: present
-  when:
-    - ansible_distribution == 'Ubuntu'
-    - ansible_distribution_version == '18.04'
+  when: ( ansible_distribution == 'Ubuntu' and
+        ansible_distribution_version >= '18.04' ) or
+        ( ansible_distribution == 'Debian' and
+          ansible_distribution_version >= '9' )
 
-- name: Ensure passenger module is enabled (Ubuntu 18.04 only).
+- name: Ensure passenger module is enabled (Ubuntu >= 18.04 or Debian >= 9).
   file:
     src: /usr/share/nginx/modules-available/mod-http-passenger.load
     dest: /etc/nginx/modules-enabled/50-mod-http-passenger.conf
     state: link
-  when:
-    - ansible_distribution == 'Ubuntu'
-    - ansible_distribution_version == '18.04'
+  when: ( ansible_distribution == 'Ubuntu' and
+        ansible_distribution_version >= '18.04' ) or
+        ( ansible_distribution == 'Debian' and
+          ansible_distribution_version >= '9' )
 
 # Nginx and passenger configuration.
 - name: Copy Nginx configuration into place.
